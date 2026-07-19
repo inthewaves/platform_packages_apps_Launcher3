@@ -24,6 +24,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.launcher3.InvariantDeviceProfile
+import com.android.launcher3.LauncherPrefs
 import com.android.launcher3.LauncherSettings.Favorites.CONTAINER_DESKTOP
 import com.android.launcher3.LauncherSettings.Favorites.CONTAINER_HOTSEAT
 import com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_APPLICATION
@@ -43,11 +44,13 @@ import com.android.launcher3.util.ModelTestExtensions.bgDataModel
 import com.android.launcher3.util.ModelTestExtensions.setEmptyModelLayout
 import com.android.launcher3.util.ModelTestExtensions.setModelLayout
 import java.util.function.Supplier
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeNotNull
 import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -70,6 +73,22 @@ class LayoutImportExportHelperTest {
                 it.isPersistedModelItem() &&
                     (it.container == CONTAINER_DESKTOP || it.container == CONTAINER_HOTSEAT)
             }
+
+    private var originalGridName: String? = null
+
+    @Before
+    fun captureGridName() {
+        originalGridName = LauncherPrefs.get(context).get(LauncherPrefs.GRID_NAME)
+    }
+
+    // importSetsGridToXmlAttributes switches the singleton InvariantDeviceProfile to a different
+    // grid and never restores it, leaking into sibling tests (e.g. exportWidgetFromWorkspace, where
+    // the leaked 2x2 grid drops the out-of-bounds widget). Restore the grid after every test so the
+    // suite is order-independent. setCurrentGrid no-ops when the grid is unchanged.
+    @After
+    fun restoreGridName() {
+        InvariantDeviceProfile.INSTANCE.get(context).setCurrentGrid(originalGridName)
+    }
 
     @Test
     fun exportAppOnHotseat() =
