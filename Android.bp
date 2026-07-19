@@ -183,6 +183,16 @@ genrule {
     out: ["BuildConfig.java"],
 }
 
+// Build config for Launcher3 instrumentation testing (IS_DEBUG_DEVICE = true)
+genrule {
+    name: "launcher-build-config-testing",
+    tools: [
+        "launcher-build-config-tool",
+    ],
+    cmd: " $(location launcher-build-config-tool) -e IS_DEBUG_DEVICE > $(out)",
+    out: ["BuildConfig.java"],
+}
+
 // Proguard files for Launcher3
 filegroup {
     name: "launcher-proguard-rules",
@@ -492,13 +502,12 @@ android_library {
 }
 
 // Library with all the source code and dependencies for building Quickstep
-android_library {
-    name: "Launcher3QuickStepLib",
+java_defaults {
+    name: "launcher-quickstep-lib-defaults",
     srcs: [
         ":launcher-src",
         ":launcher-quickstep-src",
         ":launcher-quickstep-dagger",
-        ":launcher-build-config",
     ],
     resource_dirs: [],
     libs: [
@@ -528,16 +537,13 @@ android_library {
     },
 }
 
-// Build rule for Quickstep app.
-android_app {
-    name: "Launcher3QuickStep",
-    static_libs: ["Launcher3QuickStepLib"],
-    optimize: {
-        proguard_flags_files: [":launcher-proguard-rules"],
-        enabled: true,
-        shrink_resources: true,
-        ignore_warnings: false,
-    },
+// Shared config for the Quickstep app and its instrumentation testing variant.
+//
+// Each variant specifies its own: static_libs, optimize, overrides, additional_manifests
+//
+// additional_manifests could be shared, but kept separate so merge order is clearer
+java_defaults {
+    name: "launcher-quickstep-app-defaults",
 
     platform_apis: true,
     min_sdk_version: "current",
@@ -545,22 +551,12 @@ android_app {
 
     privileged: true,
     system_ext_specific: true,
-    overrides: [
-        "Home",
-        "Launcher2",
-        "Launcher3",
-    ],
     required: [
         "privapp_whitelist_com.android.launcher3",
         "launcher.quickstep.protolog.pb",
     ],
 
     resource_dirs: ["quickstep/res"],
-
-    additional_manifests: [
-        "quickstep/AndroidManifest-launcher.xml",
-        "AndroidManifest-common.xml",
-    ],
 
     manifest: "quickstep/AndroidManifest.xml",
     jacoco: {
@@ -569,33 +565,59 @@ android_app {
 
 }
 
+// IS_DEBUG_DEVICE = false
+android_library {
+    name: "Launcher3QuickStepLib",
+    defaults: ["launcher-quickstep-lib-defaults"],
+    srcs: [":launcher-build-config"],
+}
+
+// IS_DEBUG_DEVICE = true
+android_library {
+    name: "Launcher3QuickStepLibForTesting",
+    defaults: ["launcher-quickstep-lib-defaults"],
+    srcs: [":launcher-build-config-testing"],
+}
+
+// Build rule for Quickstep app.
+android_app {
+    name: "Launcher3QuickStep",
+    defaults: ["launcher-quickstep-app-defaults"],
+    static_libs: ["Launcher3QuickStepLib"],
+    optimize: {
+        proguard_flags_files: [":launcher-proguard-rules"],
+        enabled: true,
+        shrink_resources: true,
+        ignore_warnings: false,
+    },
+    overrides: [
+        "Home",
+        "Launcher2",
+        "Launcher3",
+    ],
+    additional_manifests: [
+        // Keep these in sync with Launcher3QuickStepForTesting
+        "quickstep/AndroidManifest-launcher.xml",
+        "AndroidManifest-common.xml",
+    ],
+}
+
 // Launcher3QuickStep with R8 optimization disabled so that instrumentation tests can access all
 // methods. The production Launcher3QuickStep has R8 enabled, which strips methods that are unused
 // by the app but referenced by tests (e.g. @JvmOverloads synthetic overloads, default interface
 // methods).
 android_app {
     name: "Launcher3QuickStepForTesting",
-    static_libs: ["Launcher3QuickStepLib"],
+    defaults: ["launcher-quickstep-app-defaults"],
+    static_libs: ["Launcher3QuickStepLibForTesting"],
     optimize: {
         enabled: false,
     },
-
-    platform_apis: true,
-    min_sdk_version: "current",
-    target_sdk_version: "current",
-
-    privileged: true,
-    system_ext_specific: true,
-
-    resource_dirs: ["quickstep/res"],
-
     additional_manifests: [
         "quickstep/AndroidManifest-launcher.xml",
-        "quickstep/AndroidManifest-testing.xml",
+        "quickstep/AndroidManifest-testing.xml", // Not in Launcher3QuickStep
         "AndroidManifest-common.xml",
     ],
-
-    manifest: "quickstep/AndroidManifest.xml",
 }
 
 // Build rule for Launcher3 Go app with quickstep for Android Go devices.

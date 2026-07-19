@@ -24,6 +24,7 @@ import com.android.launcher3.dagger.AppModule
 import com.android.launcher3.dagger.AutomationModule
 import com.android.launcher3.dagger.DesktopModule
 import com.android.launcher3.dagger.HomeScreenFilesModule
+import com.android.launcher3.dagger.LauncherAppSingleton
 import com.android.launcher3.dagger.LauncherModelModule
 import com.android.launcher3.dagger.OrganizerLauncherModule
 import com.android.launcher3.dagger.PerDisplayModule
@@ -81,8 +82,10 @@ class AllModulesForTest
 
 /** Sandbox WM proxy module that provides the base WindowManagerProxy for tests */
 @Module
-class SandboxWmProxyModule {
-    @Provides fun provideWindowManagerProxy(): WindowManagerProxy = WindowManagerProxy()
+object SandboxWmProxyModule {
+    @Provides
+    @LauncherAppSingleton
+    fun provideWindowManagerProxy(): WindowManagerProxy = WindowManagerProxy()
 }
 
 /** All modules except the WMProxy */
